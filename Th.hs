@@ -2,9 +2,7 @@
 module Th where
 
 import Language.Haskell.TH
-import Text.ParserCombinators.Parsec
-import Data.Either
-import Debug.Trace
+import Text.Regex
 
 (.>) = flip (.); infixl 9 .>
 ($>) = flip ($); infixl 0 $>
@@ -14,29 +12,7 @@ dump tuple =
     listE . map dumpExpr . getElems =<< tuple
   where
     getElems = \case { TupE xs -> xs; _ -> error "not a tuple in splice!" }
-    dumpExpr exp = [| $(litE (stringL (ppr exp $> show ))) ++ " = " ++ show $(return exp)|]
+    dumpExpr exp = [| $(litE (stringL (ppr exp $> show $> simplify))) ++ " = " ++ show $(return exp)|]
 
 simplify :: String -> String
-simplify s = parse parser ("Source: " ++ s) s $> either (show .> error) id
-
-parser = expression >>>= eof
-
-identifier = try variable <|> value
-
-variable = manyTill anyChar (try $ char '_') >>>= many digit
-
-value = manyTill' anyChar lastBit $> fmap snd
-  where
-    lastBit = many letter >>>= eof
-
-manyTill' p1 p2 = do
-  r1 <- manyTill p1 (lookAhead $ try p2)
-  r2 <- p2
-  return (r1, r2)
-
-eow = lookAhead space <|> eof
-
-a >>>= b = do
-  result <- a
-  b
-  return result
+simplify s = subRegex (mkRegex "_[0-9]+|([a-zA-Z]+\\.)*") s ""
