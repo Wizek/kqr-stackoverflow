@@ -14,17 +14,16 @@ dump tuple =
     listE . map dumpExpr . getElems =<< tuple
   where
     getElems = \case { TupE xs -> xs; _ -> error "not a tuple in splice!" }
-    dumpExpr exp = [| $(litE (stringL (simplify $ show $ ppr exp))) ++ " = " ++ show $(return exp)|]
+    dumpExpr exp = [| $(litE (stringL (ppr exp $> show ))) ++ " = " ++ show $(return exp)|]
 
 simplify :: String -> String
 simplify s = parse parser ("Source: " ++ s) s $> either (show .> error) id
 
-parser = identifier >>>= eof
+parser = expression >>>= eof
 
 identifier = try variable <|> value
 
 variable = manyTill anyChar (try $ char '_') >>>= many digit
-
 
 value = manyTill' anyChar lastBit $> fmap snd
   where
@@ -34,6 +33,8 @@ manyTill' p1 p2 = do
   r1 <- manyTill p1 (lookAhead $ try p2)
   r2 <- p2
   return (r1, r2)
+
+eow = lookAhead space <|> eof
 
 a >>>= b = do
   result <- a
